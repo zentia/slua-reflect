@@ -5,27 +5,25 @@ using SLua;
 using LuaInterface;
 using System.Reflection;
 
-public class Lua_Delegate
+public partial class Lua_Reg
 {
     public static List<Assembly> assemblies;
     private static bool _init;
-    public static void Init()
+    public static void Init(IntPtr l)
     {
         if (_init)
             return;
         _init = true;
         assemblies = new List<Assembly>();
         assemblies.Add(Assembly.GetExecutingAssembly());
+
+        NewConverter<string, Converter_string>();
+        Reg(l);
     }
-    public interface IVarConverter
-    {
-        bool Check(int i);
-        void PutVar(object v);
-        object GetVar(int i);
-    }
+
     static Dictionary<Type, TypeInfo> m_typeInfos = new Dictionary<Type, TypeInfo>(100);
     static Dictionary<Type, object> m_converters = new Dictionary<Type, object>(100);
-    static Dictionary<Type, IVarConverter> m_varConverters = new Dictionary<Type, IVarConverter>(100);
+
     static Dictionary<string, Type> m_types = new Dictionary<string, Type>(100);
     public abstract class TypeInfo
     {
@@ -36,11 +34,7 @@ public class Lua_Delegate
     }
     public static IntPtr m_L;
 
-    public interface IConverter<T> : IVarConverter
-    {
-        void Put(T v);
-        T Get(int i);
-    }
+
     public static T GetComponent<T>(int i)
     {
         object v = LuaObject.checkObj(m_L, i);
@@ -122,13 +116,8 @@ public class Lua_Delegate
             p = new ConverterX<T>();
         }
         m_converters[type] = p;
-#if UNITY_EDITOR
-        if (m_varConverters.ContainsKey(type))
-        {
-            Debug.LogErrorFormat("type {0} already in var converters", type.Name);
-        }
-#endif
-        m_varConverters[type] = p;
+        if (!m_varConverters.ContainsKey(type))
+            m_varConverters[type] = p;
         return p;
     }
     public class ConvertionX<T>
@@ -228,7 +217,7 @@ public class Lua_Delegate
         int index = LuaDLL.lua_gettop(L);
         using (MakeGuard())
         {
-            for(int i = 0; i < count; ++i)
+            for (int i = 0; i < count; ++i)
             {
                 LuaDLL.lua_rawgeti(L, tabIdx, i + 1);
                 var val = cvt.GetVar(index + 1);
@@ -250,7 +239,7 @@ public class Lua_Delegate
             object obj = GetTableArray(idx, etype);
             return (T)obj;
         }
-        
+
         return default;
     }
     class ConverterArray<T> : IConverter<T>
@@ -368,28 +357,113 @@ public class Lua_Delegate
             return GetEnum(i, type);
         }
     }
-    class VarConverter_class : IVarConverter
+    class VarConverter : IVarConverter
     {
         public Type type;
         bool IVarConverter.Check(int i)
         {
-            object obj = LuaObject.checkObj(m_L, i);
-            if (obj == null) return true;
+            LuaObject.checkType(m_L, i, out object obj);
+            if (obj == null) return false;
             bool v = type.IsInstanceOfType(obj);
             return v;
         }
         void IVarConverter.PutVar(object v)
         {
-            LuaObject.pushObject(m_L, v);
+            LuaObject.pushValue(m_L, v);
         }
-        object IVarConverter.GetVar(int i)
+        object IVarConverter.GetVar(int p)
         {
-            LuaObject.checkType(m_L, i, out object obj);
-            if (type.IsInstanceOfType(obj))
+            var l = m_L;
+            LuaTypes type = LuaDLL.lua_type(m_L, p);
+            switch (type)
             {
-                return obj;
+                case LuaTypes.LUA_TNUMBER:
+                    {
+                        if (LuaDLL.lua_isinteger(m_L, p) != 0)
+                        {
+                            long n = LuaDLL.lua_tolong(m_L, p);
+                            if (n > int.MaxValue)
+                            {
+                                return n;
+                            }
+                            return (int)n;
+                        }
+                        return LuaDLL.lua_tonumber(l, p);
+                    }
+                case LuaTypes.LUA_TSTRING:
+                    {
+                        return LuaDLL.lua_tostring(l, p);
+                    }
+                case LuaTypes.LUA_TBOOLEAN:
+                    {
+                        return LuaDLL.lua_toboolean(l, p) > 0;
+                    }
+                case LuaTypes.LUA_TFUNCTION:
+                    {
+                        LuaFunction v;
+                        LuaObject.checkType(l, p, out v);
+                        return v;
+                    }
+                case LuaTypes.LUA_TTABLE:
+                    {
+                        if (LuaDLL.luaS_checkluatype(l, p, null) == 1)
+                        {
+#if !SLUA_STANDALONE
+                            if (LuaObject.luaTypeCheck(l, p, "Vector2"))
+                            {
+                                Vector2 v;
+                                LuaObject.checkType(l, p, out v);
+                                return v;
+                            }
+                            else if (LuaObject.luaTypeCheck(l, p, "Vector3"))
+                            {
+                                Vector3 v;
+                                LuaObject.checkType(l, p, out v);
+                                return v;
+                            }
+                            else if (LuaObject.luaTypeCheck(l, p, "Vector4"))
+                            {
+                                Vector4 v;
+                                LuaObject.checkType(l, p, out v);
+                                return v;
+                            }
+                            else if (LuaObject.luaTypeCheck(l, p, "Quaternion"))
+                            {
+                                Quaternion v;
+                                LuaObject.checkType(l, p, out v);
+                                return v;
+                            }
+                            else if (LuaObject.luaTypeCheck(l, p, "Color"))
+                            {
+                                Color c;
+                                LuaObject.checkType(l, p, out c);
+                                return c;
+                            }
+#endif
+                            return null;
+                        }
+                        else if (LuaObject.isLuaClass(l, p))
+                        {
+                            return LuaObject.checkObj(l, p);
+                        }
+                        else
+                        {
+                            LuaTable v;
+                            LuaObject.checkType(l, p, out v);
+                            return v;
+                        }
+                    }
+                case LuaTypes.LUA_TUSERDATA:
+                    return LuaObject.checkObj(l, p);
+                case LuaTypes.LUA_TTHREAD:
+                    {
+                        LuaThread lt;
+                        LuaObject.checkType(l, p, out lt);
+                        return lt;
+                    }
+                default:
+                    return null;
             }
-            return null;
         }
     }
 
@@ -398,7 +472,7 @@ public class Lua_Delegate
     {
         m_L = l;
         Type t = GetTypeof(1);
-        LuaObject.pushValue(m_L, true);
+        pushValue(l, true);
         Put(t);
         return 2;
     }
@@ -413,7 +487,7 @@ public class Lua_Delegate
         t = Type.GetType(name);
         if (t == null)
         {
-            foreach(var assembly in assemblies)
+            foreach (var assembly in assemblies)
             {
                 t = assembly.GetType(name);
                 if (t != null)
@@ -523,7 +597,7 @@ public class Lua_Delegate
             if (m_count >= m_infos.Length)
             {
                 Info[] d = new Info[m_count * 2];
-                System.Array.Copy(m_infos, 0, d, 0, m_count);
+                Array.Copy(m_infos, 0, d, 0, m_count);
                 m_infos = d;
             }
             m_infos[m_count] = info;
@@ -658,7 +732,7 @@ public class Lua_Delegate
         }
         else
         {
-            p = new VarConverter_class { type = type };
+            p = new VarConverter { type = type };
         }
         m_varConverters[type] = p;
         return p;
@@ -838,7 +912,7 @@ public class Lua_Delegate
         if (c == 0) return emptyParam;
 
         object[] args = new object[c];
-        for(int i = 0; i < c; ++i)
+        for (int i = 0; i < c; ++i)
         {
             args[i] = converters[i].GetVar(idx + i);
         }
@@ -858,13 +932,13 @@ public class Lua_Delegate
     }
     static bool CheckArgs(int idx, IVarConverter self, IVarConverter[] converters)
     {
-        if(self != null)
-        {
-            if (!self.Check(idx)) return false;
-            ++idx;
-        }
+        //if(self != null)
+        //{
+        //    if (!self.Check(idx)) return false;
+        //    ++idx;
+        //}
         int c = converters.Length;
-        for(int i = 0; i < c; ++i)
+        for (int i = 0; i < c; ++i)
         {
             if (!converters[i].Check(idx + i)) return false;
         }
@@ -890,14 +964,21 @@ public class Lua_Delegate
                     idx = 2;
                 }
                 var args = GetArgs(idx, converters[0]);
-                object ret = m.Invoke(self, args);
-                if (m.ReturnType == null) return 0;
-                PutVar(ret);
+                try
+                {
+                    object ret = m.Invoke(self, args);
+                    if (m.ReturnType == null) return 0;
+                    PutVar(ret);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogException(e);
+                }
                 return 1;
             }
             else
             {
-                for(int i = 0; i < mc; ++i)
+                for (int i = 0; i < mc; ++i)
                 {
                     var m = infos[i];
                     int idx = 1;
@@ -907,7 +988,7 @@ public class Lua_Delegate
                         selfCvt = dynType.converter;
                         idx = 2;
                     }
-                    if(!CheckArgs(idx, selfCvt, converters[0]))
+                    if (!CheckArgs(idx, selfCvt, converters[0]))
                     {
                         continue;
                     }
@@ -919,8 +1000,9 @@ public class Lua_Delegate
                     var args = GetArgs(idx, converters[0]);
                     object ret = m.Invoke(self, args);
                     if (m.ReturnType == null) return 0;
+                    LuaObject.pushValue(m_L, true);
                     PutVar(ret);
-                    return 1;
+                    return 2;
                 }
             }
             Debug.LogErrorFormat("no match method " + infos[0].Name);
@@ -928,20 +1010,21 @@ public class Lua_Delegate
         }
         internal override int Push()
         {
-            LuaObject.pushObject(m_L, true);
+            pushObject(m_L, true);
             Put(1);
             SafeCall.PushClosure(call);
             Put(infos[0].IsStatic);
             return 4;
         }
     }
+
     [MonoPInvokeCallback(typeof(LuaCSFunction))]
     internal static int GetMember_s(IntPtr l)
     {
         m_L = l;
         Type type = GetTypeof(1);
         DynType dynType = GetDynType(type);
-        LuaObject.checkType(m_L, 2, out string name);
+        checkType(m_L, 2, out string name);
         DynType dp = dynType;
         for (; dp != null; dp = dp.baseDynType)
         {
