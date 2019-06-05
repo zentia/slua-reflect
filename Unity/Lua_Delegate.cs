@@ -14,10 +14,25 @@ public partial class Lua_Reg
         if (_init)
             return;
         _init = true;
-        assemblies = new List<Assembly>();
-        assemblies.Add(Assembly.GetExecutingAssembly());
-
+        assemblies = new List<Assembly>
+        {
+            Assembly.GetExecutingAssembly()
+        };
+        NewConverter<bool, Converter_bool>();
+        NewConverter<sbyte, Converter_sbyte>();
+        NewConverter<byte, Converter_byte>();
+        NewConverter<short, Converter_short>();
+        NewConverter<ushort, Converter_ushort>();
+        NewConverter<long, Converter_long>();
+        NewConverter<ulong, Converter_ulong>();
+        NewConverter<float, Converter_float>();
+        NewConverter<double, Converter_double>();
         NewConverter<string, Converter_string>();
+        NewConverter<Vector2, Converter_Vector2>();
+        NewConverter<Vector3, Converter_Vector3>();
+        NewConverter<Vector4, Converter_Vector4>();
+        NewConverter<Color, Converter_Color>();
+        NewConverter<Quaternion, Converter_Quaternion>();
         Reg(l);
     }
 
@@ -37,7 +52,7 @@ public partial class Lua_Reg
 
     public static T GetComponent<T>(int i)
     {
-        object v = LuaObject.checkObj(m_L, i);
+        object v = checkObj(m_L, i);
         if (v == null) return default;
 
         Component p = v as Component;
@@ -63,7 +78,7 @@ public partial class Lua_Reg
     {
         void IConverter<T>.Put(T v)
         {
-            LuaObject.pushObject(m_L, v);
+            pushObject(m_L, v);
         }
         T IConverter<T>.Get(int i)
         {
@@ -71,14 +86,14 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            object v = LuaObject.checkObj(m_L, i);
+            object v = checkObj(m_L, i);
             if (v == null) return false;
             object p = (T)v;
             return p != null;
         }
         void IVarConverter.PutVar(object v)
         {
-            LuaObject.pushObject(m_L, v);
+            pushObject(m_L, v);
         }
         object IVarConverter.GetVar(int i)
         {
@@ -171,11 +186,11 @@ public partial class Lua_Reg
     {
         void IConverter<T>.Put(T v)
         {
-            LuaObject.pushValue(m_L, v);
+            pushValue(m_L, v);
         }
         T GetValue(int i)
         {
-            LuaObject.checkType(m_L, i, out object v);
+            checkType(m_L, i, out object v);
             if (v == null)
             {
                 return default;
@@ -193,14 +208,14 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            LuaObject.checkType(m_L, i, out object v);
+            checkType(m_L, i, out object v);
             if (v == null) return false;
             T p = (T)v;
             return p != null;
         }
         void IVarConverter.PutVar(object v)
         {
-            LuaObject.pushObject(m_L, v);
+            pushObject(m_L, v);
         }
         object IVarConverter.GetVar(int i)
         {
@@ -246,7 +261,7 @@ public partial class Lua_Reg
     {
         void IConverter<T>.Put(T v)
         {
-            LuaObject.pushObject(m_L, (Array)(object)v);
+            pushObject(m_L, (Array)(object)v);
         }
         T IConverter<T>.Get(int i)
         {
@@ -254,14 +269,14 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            object v = LuaObject.checkObj(m_L, i);
+            object v = checkObj(m_L, i);
             if (v == null) return false;
             T p = (T)v;
             return p != null;
         }
         void IVarConverter.PutVar(object v)
         {
-            LuaObject.pushObject(m_L, (Array)v);
+            pushObject(m_L, (Array)v);
         }
         object IVarConverter.GetVar(int i)
         {
@@ -290,7 +305,7 @@ public partial class Lua_Reg
                     break;
                 case LuaTypes.LUA_TUSERDATA:
                     {
-                        v = LuaObject.checkObj(m_L, idx);
+                        v = checkObj(m_L, idx);
                         if (v != null)
                         {
                             if (!type.IsInstanceOfType(v))
@@ -328,7 +343,7 @@ public partial class Lua_Reg
                 break;
             case LuaTypes.LUA_TUSERDATA:
                 {
-                    v = LuaObject.checkObj(m_L, idx);
+                    v = checkObj(m_L, idx);
                     if (v != null)
                     {
                         if (!type.IsInstanceOfType(v))
@@ -357,19 +372,19 @@ public partial class Lua_Reg
             return GetEnum(i, type);
         }
     }
-    class VarConverter : IVarConverter
+    class VarConverter_class : IVarConverter
     {
         public Type type;
         bool IVarConverter.Check(int i)
         {
-            LuaObject.checkType(m_L, i, out object obj);
+            checkType(m_L, i, out object obj);
             if (obj == null) return false;
             bool v = type.IsInstanceOfType(obj);
             return v;
         }
         void IVarConverter.PutVar(object v)
         {
-            LuaObject.pushValue(m_L, v);
+            pushValue(m_L, v);
         }
         object IVarConverter.GetVar(int p)
         {
@@ -400,8 +415,7 @@ public partial class Lua_Reg
                     }
                 case LuaTypes.LUA_TFUNCTION:
                     {
-                        LuaFunction v;
-                        LuaObject.checkType(l, p, out v);
+                        checkType(l, p, out LuaFunction v);
                         return v;
                     }
                 case LuaTypes.LUA_TTABLE:
@@ -409,56 +423,50 @@ public partial class Lua_Reg
                         if (LuaDLL.luaS_checkluatype(l, p, null) == 1)
                         {
 #if !SLUA_STANDALONE
-                            if (LuaObject.luaTypeCheck(l, p, "Vector2"))
+                            if (luaTypeCheck(l, p, "Vector2"))
                             {
-                                Vector2 v;
-                                LuaObject.checkType(l, p, out v);
+                                checkType(l, p, out Vector2 v);
                                 return v;
                             }
-                            else if (LuaObject.luaTypeCheck(l, p, "Vector3"))
+                            else if (luaTypeCheck(l, p, "Vector3"))
                             {
-                                Vector3 v;
-                                LuaObject.checkType(l, p, out v);
+                                checkType(l, p, out Vector3 v);
                                 return v;
                             }
-                            else if (LuaObject.luaTypeCheck(l, p, "Vector4"))
+                            else if (luaTypeCheck(l, p, "Vector4"))
                             {
-                                Vector4 v;
-                                LuaObject.checkType(l, p, out v);
+                                checkType(l, p, out Vector4 v);
                                 return v;
                             }
-                            else if (LuaObject.luaTypeCheck(l, p, "Quaternion"))
+                            else if (luaTypeCheck(l, p, "Quaternion"))
                             {
-                                Quaternion v;
-                                LuaObject.checkType(l, p, out v);
+                                checkType(l, p, out Quaternion v);
                                 return v;
                             }
-                            else if (LuaObject.luaTypeCheck(l, p, "Color"))
+                            else if (luaTypeCheck(l, p, "Color"))
                             {
-                                Color c;
-                                LuaObject.checkType(l, p, out c);
+                                checkType(l, p, out Color c);
                                 return c;
                             }
 #endif
                             return null;
                         }
-                        else if (LuaObject.isLuaClass(l, p))
+                        else if (isLuaClass(l, p))
                         {
-                            return LuaObject.checkObj(l, p);
+                            return checkObj(l, p);
                         }
                         else
                         {
                             LuaTable v;
-                            LuaObject.checkType(l, p, out v);
+                            checkType(l, p, out v);
                             return v;
                         }
                     }
                 case LuaTypes.LUA_TUSERDATA:
-                    return LuaObject.checkObj(l, p);
+                    return checkObj(l, p);
                 case LuaTypes.LUA_TTHREAD:
                     {
-                        LuaThread lt;
-                        LuaObject.checkType(l, p, out lt);
+                        checkType(l, p, out LuaThread lt);
                         return lt;
                     }
                 default:
@@ -613,7 +621,7 @@ public partial class Lua_Reg
         internal IVarConverter converter;
         internal override int Push()
         {
-            LuaObject.pushValue(m_L, true);
+            pushValue(m_L, true);
             SafeCall.PushClosure(getter);
             SafeCall.PushClosure(setter);
             return 3;
@@ -661,7 +669,7 @@ public partial class Lua_Reg
             case LuaTypes.LUA_TBOOLEAN:
                 return LuaDLL.lua_toboolean(L, idx);
             case LuaTypes.LUA_TTABLE:
-                LuaObject.checkArray<float>(L, idx, out var ta);
+                checkArray<float>(L, idx, out var ta);
                 return ta;
             case LuaTypes.LUA_TFUNCTION:
                 LuaDLL.lua_pushvalue(L, idx);
@@ -732,7 +740,7 @@ public partial class Lua_Reg
         }
         else
         {
-            p = new VarConverter { type = type };
+            p = new VarConverter_class { type = type };
         }
         m_varConverters[type] = p;
         return p;
@@ -932,11 +940,11 @@ public partial class Lua_Reg
     }
     static bool CheckArgs(int idx, IVarConverter self, IVarConverter[] converters)
     {
-        //if(self != null)
-        //{
-        //    if (!self.Check(idx)) return false;
-        //    ++idx;
-        //}
+        if (self != null)
+        {
+            if (!self.Check(idx)) return false;
+            ++idx;
+        }
         int c = converters.Length;
         for (int i = 0; i < c; ++i)
         {
@@ -986,9 +994,8 @@ public partial class Lua_Reg
                     if (!m.IsStatic)
                     {
                         selfCvt = dynType.converter;
-                        idx = 2;
                     }
-                    if (!CheckArgs(idx, selfCvt, converters[0]))
+                    if (!CheckArgs(idx, selfCvt, converters[i]))
                     {
                         continue;
                     }
@@ -997,12 +1004,11 @@ public partial class Lua_Reg
                     {
                         self = GetSelf(l);
                     }
-                    var args = GetArgs(idx, converters[0]);
+                    var args = GetArgs(idx + 1, converters[i]);
                     object ret = m.Invoke(self, args);
                     if (m.ReturnType == null) return 0;
-                    LuaObject.pushValue(m_L, true);
                     PutVar(ret);
-                    return 2;
+                    return 1;
                 }
             }
             Debug.LogErrorFormat("no match method " + infos[0].Name);

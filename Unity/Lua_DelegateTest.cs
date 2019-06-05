@@ -23,4 +23,12 @@ public class Lua_DelegateTest : MonoBehaviour
     {
         return name;
     }
+    public string TestMethodBool(bool value)
+    {
+        return "lalalala";
+    }
+    public void TestMethod(string name, bool value, sbyte s)
+    {
+
+    }
 }
