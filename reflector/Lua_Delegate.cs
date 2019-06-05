@@ -23,6 +23,8 @@ public partial class Lua_Reg
         NewConverter<byte, Converter_byte>();
         NewConverter<short, Converter_short>();
         NewConverter<ushort, Converter_ushort>();
+        NewConverter<int, Converter_int>();
+        NewConverter<uint, Converter_uint>();
         NewConverter<long, Converter_long>();
         NewConverter<ulong, Converter_ulong>();
         NewConverter<float, Converter_float>();
@@ -986,6 +988,7 @@ public partial class Lua_Reg
             }
             else
             {
+                int ct = LuaDLL.lua_gettop(m_L);
                 for (int i = 0; i < mc; ++i)
                 {
                     var m = infos[i];
@@ -994,6 +997,13 @@ public partial class Lua_Reg
                     if (!m.IsStatic)
                     {
                         selfCvt = dynType.converter;
+                        if (converters[i].Length != ct - 1)
+                            continue;
+                    }
+                    else
+                    {
+                        if (converters[i].Length != ct)
+                            continue;
                     }
                     if (!CheckArgs(idx, selfCvt, converters[i]))
                     {

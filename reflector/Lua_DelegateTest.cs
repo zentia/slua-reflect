@@ -31,4 +31,8 @@ public class Lua_DelegateTest : MonoBehaviour
     {
 
     }
+    public long TestMethod(string name, int a, Vector2 vector2)
+    {
+        return 100000000000;
+    }
 }

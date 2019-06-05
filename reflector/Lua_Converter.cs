@@ -28,8 +28,8 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            bool v = LuaDLL.lua_isboolean(m_L, i);
-            return v;
+            var v = LuaDLL.lua_type(m_L, i);
+            return v == LuaTypes.LUA_TBOOLEAN;
         }
         void IVarConverter.PutVar(object v)
         {
@@ -314,7 +314,7 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            return LuaDLL.luaS_checkVector2(m_L, i, out float x, out float y) == 1;
+            return LuaDLL.luaS_checkVector2(m_L, i, out float x, out float y) == 0;
         }
         void IVarConverter.PutVar(object v)
         {
@@ -340,7 +340,7 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            return LuaDLL.luaS_checkVector3(m_L, i, out float x, out float y, out float z) == 1;
+            return LuaDLL.luaS_checkVector3(m_L, i, out float x, out float y, out float z) == 0;
         }
         void IVarConverter.PutVar(object v)
         {
@@ -366,7 +366,7 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            return LuaDLL.luaS_checkVector4(m_L, i, out float x, out float y, out float z, out float w) == 1;
+            return LuaDLL.luaS_checkVector4(m_L, i, out float x, out float y, out float z, out float w) == 0;
         }
         void IVarConverter.PutVar(object v)
         {
@@ -392,7 +392,7 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            return LuaDLL.luaS_checkColor(m_L, i, out float x, out float y, out float z, out float w) == 1;
+            return LuaDLL.luaS_checkColor(m_L, i, out float x, out float y, out float z, out float w) == 0;
         }
         void IVarConverter.PutVar(object v)
         {
@@ -418,7 +418,7 @@ public partial class Lua_Reg
         }
         bool IVarConverter.Check(int i)
         {
-            return LuaDLL.luaS_checkQuaternion(m_L, i, out float x, out float y, out float z, out float w) == 1;
+            return LuaDLL.luaS_checkQuaternion(m_L, i, out float x, out float y, out float z, out float w) == 0;
         }
         void IVarConverter.PutVar(object v)
         {
